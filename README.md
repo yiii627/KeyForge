@@ -17,7 +17,7 @@ KeyForge is a Windows console application. On launch, it generates a 12-word Eng
 | SOL | `m/44'/501'/0'/0'` | Base58 | Base58-encoded 64-byte keypair |
 | TRON | `m/44'/195'/0'/0/0` | Base58Check | 32-byte hexadecimal |
 
-## Build and run
+## Build and Run
 
 Windows, MinGW-w64 GCC/G++, and CMake are required. Run these commands from the project root:
 
@@ -29,7 +29,7 @@ cmake --build build
 
 Run the application in an interactive PowerShell, Windows Terminal, or CMD console.
 
-## Runtime files
+## Runtime Files
 
 The executable is located at `build/KeyForge.exe`. The `dll/` directory contains `libstdc++-6.dll` and `libgcc_s_seh-1.dll`. To run the application on another 64-bit Windows computer, place these three files in the same directory:
 
@@ -39,7 +39,7 @@ libstdc++-6.dll
 libgcc_s_seh-1.dll
 ```
 
-## Directories and licenses
+## Directories and Licenses
 
 - `src/`: Program entry point, wallet derivation, and Windows platform code.
 - `trezor-crypto/`: Trezor cryptographic source code. Copyright and license details are in the source file headers and `trezor-crypto/LICENSE`.
