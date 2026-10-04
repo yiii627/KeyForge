@@ -19,7 +19,7 @@ KeyForge is a Windows console application. On launch, it generates a 12-word Eng
 
 ## Build and Run
 
-Windows, MinGW-w64 GCC/G++, and CMake are required. Run these commands from the project root:
+Use 64-bit Windows 10 or later, a 64-bit MinGW-w64 GCC/G++ toolchain, and CMake 3.20 or later. Run these commands from the project root:
 
 ```powershell
 cmake -S . -B build -G "MinGW Makefiles"
@@ -31,18 +31,17 @@ Run the application in an interactive PowerShell, Windows Terminal, or CMD conso
 
 ## Runtime Files
 
-The executable is located at `build/KeyForge.exe`. The `dll/` directory contains `libstdc++-6.dll` and `libgcc_s_seh-1.dll`. To run the application on another 64-bit Windows computer, place these three files in the same directory:
+The executable is located at `build/KeyForge.exe`. GCC and C++ runtime libraries are linked statically. Distribute `KeyForge.exe` to a compatible 64-bit Windows computer. Windows system libraries, including BCrypt and the Universal C Runtime (UCRT), are required; Windows 10 and later include UCRT.
 
-```text
-KeyForge.exe
-libstdc++-6.dll
-libgcc_s_seh-1.dll
+Inspect the executable's DLL dependencies with:
+
+```powershell
+objdump -p .\build\KeyForge.exe | Select-String "DLL Name"
 ```
 
 ## Directories and Licenses
 
 - `src/`: Program entry point, wallet derivation, and Windows platform code.
 - `trezor-crypto/`: Trezor cryptographic source code. Copyright and license details are in the source file headers and `trezor-crypto/LICENSE`.
-- `dll/`: MinGW runtime DLLs.
 
 The application displays the mnemonic and private keys directly in the console. They may remain in terminal scrollback, recordings, or system memory. Use and back up this information only in a trusted offline environment.

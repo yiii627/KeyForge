@@ -51,7 +51,12 @@ target_compile_options(keyforge_core PRIVATE -O2 -ffunction-sections -fdata-sect
 
 add_executable(keyforge src/main.cpp)
 target_link_libraries(keyforge PRIVATE keyforge_core)
-target_link_options(keyforge PRIVATE -Wl,--gc-sections -Wl,--no-undefined)
+target_link_options(keyforge PRIVATE
+  -Wl,--gc-sections
+  -Wl,--no-undefined
+  -static-libgcc
+  -static-libstdc++
+)
 set_target_properties(keyforge PROPERTIES
   OUTPUT_NAME "KeyForge"
   RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"

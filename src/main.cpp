@@ -73,11 +73,14 @@ std::wstring hex_private(const std::array<uint8_t, 32>& key) {
   return hex;
 }
 
-void print_wallet(HANDLE output, const wchar_t* label, const wchar_t* path,
-                  const keyforge::Wallet& wallet, bool solana) {
-  SecretWide private_text(solana ? ascii_to_wide(wallet.private_key_text)
-                                 : hex_private(wallet.private_key));
-  write_console(output, std::wstring(L"\n") + label + L"  " + path +
+void print_wallet(HANDLE output, const keyforge::Wallet& wallet) {
+  const auto& info = keyforge::chain_info(wallet.chain);
+  SecretWide private_text(
+      info.private_key_format == keyforge::PrivateKeyFormat::Base58Keypair
+          ? ascii_to_wide(wallet.private_key_text)
+          : hex_private(wallet.private_key));
+  write_console(output, L"\n" + ascii_to_wide(info.name) + L"  " +
+                            ascii_to_wide(keyforge::derivation_path(wallet.chain)) +
                             L"\n  Private key: ");
   write_console(output, private_text.text);
   write_console(output, L"\n  Address:     " + ascii_to_wide(wallet.address) + L"\n");
@@ -114,21 +117,20 @@ int run(HANDLE output) {
   }
   keyforge::secure_wipe(mnemonic.text.data(), mnemonic.text.size());
 
-  keyforge::Wallet btc;
-  keyforge::Wallet eth;
-  keyforge::Wallet sol;
-  keyforge::Wallet tron;
-  if (!keyforge::derive(seed, 0, btc) ||
-      !keyforge::derive(seed, 1, eth) ||
-      !keyforge::derive(seed, 2, sol) ||
-      !keyforge::derive(seed, 3, tron)) {
-    throw std::runtime_error("wallet derivation failed");
+  std::array<keyforge::Wallet, 4> wallets{
+      keyforge::Wallet(keyforge::Chain::BTC),
+      keyforge::Wallet(keyforge::Chain::ETH),
+      keyforge::Wallet(keyforge::Chain::SOL),
+      keyforge::Wallet(keyforge::Chain::TRON)};
+  for (auto& wallet : wallets) {
+    if (!keyforge::derive(seed, wallet)) {
+      throw std::runtime_error("wallet derivation failed");
+    }
   }
   keyforge::secure_wipe(seed.data(), seed.size());
-  print_wallet(output, L"BTC (Native SegWit)", L"m/84'/0'/0'/0/0", btc, false);
-  print_wallet(output, L"ETH/EVM", L"m/44'/60'/0'/0/0", eth, false);
-  print_wallet(output, L"SOL", L"m/44'/501'/0'/0'", sol, true);
-  print_wallet(output, L"TRON", L"m/44'/195'/0'/0/0", tron, false);
+  for (const auto& wallet : wallets) {
+    print_wallet(output, wallet);
+  }
   return 0;
 }
 

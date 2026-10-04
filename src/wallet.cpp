@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <stdexcept>
 #include <string>
 
 extern "C" {
@@ -18,6 +19,21 @@ namespace keyforge {
 namespace {
 
 constexpr std::uint32_t kHardened = 0x80000000u;
+
+constexpr std::array<ChainInfo, 4> kChainInfo{{
+    {Chain::BTC, "BTC (Native SegWit)", "secp256k1",
+     {kHardened | 84u, kHardened | 0u, kHardened | 0u, 0u, 0u},
+     5, PrivateKeyFormat::Hex},
+    {Chain::ETH, "ETH/EVM", "secp256k1",
+     {kHardened | 44u, kHardened | 60u, kHardened | 0u, 0u, 0u},
+     5, PrivateKeyFormat::Hex},
+    {Chain::SOL, "SOL", "ed25519",
+     {kHardened | 44u, kHardened | 501u, kHardened | 0u, kHardened | 0u, 0u},
+     4, PrivateKeyFormat::Base58Keypair},
+    {Chain::TRON, "TRON", "secp256k1",
+     {kHardened | 44u, kHardened | 195u, kHardened | 0u, 0u, 0u},
+     5, PrivateKeyFormat::Hex},
+}};
 
 template <typename T>
 class ClearOnExit {
@@ -38,6 +54,33 @@ bool valid_inputs(const std::string& mnemonic, const std::string& passphrase) {
 }
 
 }  // namespace
+
+const ChainInfo& chain_info(Chain chain) {
+  for (const auto& info : kChainInfo) {
+    if (info.chain == chain) {
+      return info;
+    }
+  }
+  throw std::invalid_argument("unsupported chain");
+}
+
+std::string derivation_path(Chain chain) {
+  const auto& info = chain_info(chain);
+  std::string path = "m";
+  for (std::size_t i = 0; i < info.path_length; ++i) {
+    const std::uint32_t index = info.path[i];
+    path += '/';
+    path += std::to_string(index & ~kHardened);
+    if ((index & kHardened) != 0) {
+      path += '\'';
+    }
+  }
+  return path;
+}
+
+Wallet::Wallet(Chain chain_value) : chain(chain_value) {
+  (void)chain_info(chain);
+}
 
 Wallet::~Wallet() {
   secure_wipe(private_key.data(), private_key.size());
@@ -91,35 +134,21 @@ bool mnemonic_seed(const std::string& mnemonic, const std::string& passphrase,
   return true;
 }
 
-bool derive(const std::array<std::uint8_t, 64>& seed, int chain, Wallet& out) {
+bool derive(const std::array<std::uint8_t, 64>& seed, Wallet& out) {
+  const auto& info = chain_info(out.chain);
   out.address.clear();
   if (!out.private_key_text.empty()) {
     secure_wipe(out.private_key_text.data(), out.private_key_text.size());
     out.private_key_text.clear();
   }
   secure_wipe(out.private_key.data(), out.private_key.size());
-  if (chain < 0 || chain > 3) {
-    return false;
-  }
   HDNode node{};
   ClearOnExit<HDNode> clear_node(node);
-  if (!hdnode_from_seed(seed.data(), seed.size(),
-                        chain == 2 ? "ed25519" : "secp256k1", &node)) {
+  if (!hdnode_from_seed(seed.data(), seed.size(), info.curve, &node)) {
     return false;
   }
-  constexpr std::uint32_t btc_path[] = {
-      kHardened | 84u, kHardened | 0u, kHardened | 0u, 0u, 0u};
-  constexpr std::uint32_t eth_path[] = {
-      kHardened | 44u, kHardened | 60u, kHardened | 0u, 0u, 0u};
-  constexpr std::uint32_t sol_path[] = {
-      kHardened | 44u, kHardened | 501u, kHardened | 0u, kHardened | 0u};
-  constexpr std::uint32_t tron_path[] = {
-      kHardened | 44u, kHardened | 195u, kHardened | 0u, 0u, 0u};
-  const std::uint32_t* path = chain == 0 ? btc_path :
-                              chain == 1 ? eth_path :
-                              chain == 2 ? sol_path : tron_path;
-  for (std::size_t i = 0; i < (chain == 2 ? 4u : 5u); ++i) {
-    if (!hdnode_private_ckd(&node, path[i])) {
+  for (std::size_t i = 0; i < info.path_length; ++i) {
+    if (!hdnode_private_ckd(&node, info.path[i])) {
       return false;
     }
   }
@@ -127,7 +156,7 @@ bool derive(const std::array<std::uint8_t, 64>& seed, int chain, Wallet& out) {
   ClearOnExit<decltype(hash)> clear_hash(hash);
   char address[90]{};
   ClearOnExit<decltype(address)> clear_address(address);
-  if (chain == 0) {
+  if (out.chain == Chain::BTC) {
     if (hdnode_fill_public_key(&node) != 0) {
       return false;
     }
@@ -136,12 +165,12 @@ bool derive(const std::array<std::uint8_t, 64>& seed, int chain, Wallet& out) {
     if (!segwit_addr_encode(address, "bc", 0, hash.data(), 20)) {
       return false;
     }
-  } else if (chain == 1) {
+  } else if (out.chain == Chain::ETH) {
     if (!hdnode_get_ethereum_pubkeyhash(&node, hash.data())) {
       return false;
     }
     ethereum_address_checksum(hash.data(), address, false, 0);
-  } else if (chain == 2) {
+  } else if (out.chain == Chain::SOL) {
     if (hdnode_fill_public_key(&node) != 0) {
       return false;
     }
@@ -181,7 +210,7 @@ bool derive(const std::array<std::uint8_t, 64>& seed, int chain, Wallet& out) {
     return false;
   }
   out.address.assign(address, address_len);
-  if (chain != 2) {
+  if (info.private_key_format == PrivateKeyFormat::Hex) {
     std::memcpy(out.private_key.data(), node.private_key, out.private_key.size());
   }
   return true;
