@@ -27,8 +27,6 @@ cmake --build build
 .\build\KeyForge.exe
 ```
 
-Run the application in an interactive PowerShell, Windows Terminal, or CMD console.
-
 ## Runtime Files
 
 The executable is located at `build/KeyForge.exe`. GCC and C++ runtime libraries are linked statically. Distribute `KeyForge.exe` to a compatible 64-bit Windows computer. Windows system libraries, including BCrypt and the Universal C Runtime (UCRT), are required; Windows 10 and later include UCRT.

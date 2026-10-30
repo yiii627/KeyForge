@@ -27,8 +27,6 @@ cmake --build build
 .\build\KeyForge.exe
 ```
 
-程序需要在 PowerShell、Windows Terminal 或 CMD 的交互式控制台中运行。
-
 ## 运行时文件
 
 程序位于 `build/KeyForge.exe`，GCC 和 C++ 运行库采用静态链接。分发时将 `KeyForge.exe` 复制到兼容的 64 位 Windows 电脑。程序依赖 Windows 系统库，包括 BCrypt 和通用 C 运行库（UCRT）；Windows 10 及更新版本自带 UCRT。
